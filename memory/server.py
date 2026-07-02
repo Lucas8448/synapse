@@ -382,6 +382,21 @@ def neighbors(entity: str) -> str:
 
 
 @mcp.tool
+def read_note(name: str) -> str:
+    """Read a full note from anywhere in the vault (READ-ONLY). `name` is the note
+    name (as in [[wikilinks]]) or a vault-relative path. Use after recall/neighbors
+    to get complete context."""
+    _refresh()
+    target = name.lower().removesuffix(".md")
+    for p in _notes():
+        rel = str(p.relative_to(VAULT))
+        if p.stem.lower() == target or rel.lower().removesuffix(".md") == target:
+            text = p.read_text(errors="replace")
+            return f"[{rel}]\n{text[:8000]}" + ("\n…(truncated)" if len(text) > 8000 else "")
+    return f"note not found: {name}"
+
+
+@mcp.tool
 def stats() -> str:
     """Vault index stats: notes, blocks, entities, relations, embedding coverage."""
     _refresh()
@@ -421,6 +436,9 @@ def _cli() -> None:
     n = sub.add_parser("neighbors")
     n.add_argument("entity")
 
+    rd = sub.add_parser("read")
+    rd.add_argument("name")
+
     sub.add_parser("stats")
 
     args = p.parse_args()
@@ -432,6 +450,8 @@ def _cli() -> None:
         print(forget(args.fragment, args.note))
     elif args.cmd == "neighbors":
         print(neighbors(args.entity))
+    elif args.cmd == "read":
+        print(read_note(args.name))
     elif args.cmd == "stats":
         print(stats())
     else:
