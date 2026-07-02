@@ -19,7 +19,7 @@ Fallbacks: `frontier → mid → bulk → low → local`. Hard budget cap: $20/m
 ## Setup
 
 ```sh
-git clone <this repo> ~/Github/synapse
+git clone <this repo> <wherever you keep repos>
 cp env/.env.example ~/.config/synapse/.env   # fill in real keys — NEVER commit them
 pip install 'litellm[proxy]'
 bin/spine-sync                               # symlinks adapters, validates env, starts gateway
