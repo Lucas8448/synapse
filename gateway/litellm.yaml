@@ -1,0 +1,54 @@
+# synapse gateway — single source of truth for model routing.
+# Tools use tier aliases (frontier/mid/bulk/local), never real model names.
+# Swap a provider by editing ONE litellm_params block.
+
+model_list:
+  # ── frontier: hard reasoning, architecture, gnarly debugging. Burns paid credit.
+  - model_name: frontier
+    litellm_params:
+      model: openrouter/z-ai/glm-5.2
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  # ── mid: everyday coding, refactors, tests.
+  - model_name: mid
+    litellm_params:
+      model: openrouter/deepseek/deepseek-v4-flash
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  # ── bulk: subagent fanout, classification, summarization. Free.
+  - model_name: bulk
+    litellm_params:
+      model: openrouter/nvidia/nemotron-3-super-120b-a12b:free
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  # ── low: trivial tasks — commit messages, renames, quick lookups. Free.
+  - model_name: low
+    litellm_params:
+      model: openrouter/cohere/north-mini-code:free
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  # ── local: offline fallback. Zero cost, zero network.
+  - model_name: local
+    litellm_params:
+      model: ollama/qwen3.6:35b-a3b
+      api_base: http://localhost:11434
+
+router_settings:
+  fallbacks:
+    - frontier: ["mid"] # credit exhausted → degrade gracefully
+    - mid: ["bulk"]
+    - bulk: ["low"]
+    - low: ["local"] # OpenRouter down/rate-limited → offline
+  num_retries: 2
+  timeout: 120
+
+litellm_settings:
+  cache: true # local response cache — repeated calls are free
+  cache_params:
+    type: local
+  drop_params: true # silently drop provider-unsupported params instead of erroring
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY # gateway auth — any non-empty secret
+  max_budget: 20 # hard monthly ceiling, USD
+  budget_duration: 30d

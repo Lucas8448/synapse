@@ -1,0 +1,16 @@
+# Optional: run the gateway in Docker instead of `litellm --config`.
+# Usage: docker compose --env-file ~/.config/synapse/.env up -d
+services:
+  gateway:
+    image: ghcr.io/berriai/litellm:main-latest
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    ports:
+      - "127.0.0.1:4000:4000"   # localhost only — never expose the gateway
+    volumes:
+      - ./litellm.yaml:/app/config.yaml:ro
+    environment:
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # reach Ollama on the host
+    restart: unless-stopped

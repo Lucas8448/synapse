@@ -1,0 +1,50 @@
+# synapse
+
+Provider-agnostic AI gateway config — one spine for all models, tools, and agents.
+
+One local gateway ([LiteLLM](https://docs.litellm.ai/docs/proxy/quick_start)) + this repo as the single source of truth. Every tool (pi, Claude Code, OpenCode, scripts) talks to `localhost:4000` using stable tier aliases — swap providers behind them without touching any tool config.
+
+## Tiers
+
+| Alias      | Purpose                                   | Backed by (current)                        |
+|------------|-------------------------------------------|--------------------------------------------|
+| `frontier` | Hard reasoning, architecture — paid       | OpenRouter · z-ai/glm-5.2                  |
+| `mid`      | Everyday coding, refactors                | OpenRouter · deepseek/deepseek-v4-flash    |
+| `bulk`     | Subagent fanout, classification, mining   | OpenRouter · nemotron-3-super-120b (:free) |
+| `low`      | Commit msgs, renames, trivia              | OpenRouter · cohere/north-mini-code (:free)|
+| `local`    | Offline fallback                          | Ollama · qwen2.5-coder                     |
+
+Fallbacks: `frontier → mid → bulk → low → local`. Hard budget cap: $20/mo.
+
+## Setup
+
+```sh
+git clone <this repo> ~/Github/synapse
+cp env/.env.example ~/.config/synapse/.env   # fill in real keys — NEVER commit them
+pip install 'litellm[proxy]'
+bin/spine-sync                               # symlinks adapters, validates env, starts gateway
+```
+
+Then point any OpenAI-compatible tool at:
+
+```
+base_url = http://localhost:4000
+model    = frontier | mid | bulk | local
+```
+
+## Layout
+
+```
+gateway/    litellm.yaml (tiers, fallbacks, budget), docker-compose.yml
+env/        .env.example — key NAMES only; real keys live in ~/.config/synapse/.env
+prompts/    shared system prompts, tool-agnostic; adapters reference these
+knowledge/  codex + graphify outputs per repo (symlinked in, gitignored contents)
+adapters/   per-tool config, symlinked into place by spine-sync
+bin/        spine-sync
+```
+
+## Notes
+
+- Claude Pro subscription has no API key — Claude Code authenticates natively on the sub; everything else routes through the gateway.
+- Swapping a provider = one line in `gateway/litellm.yaml`. Tool configs never change.
+- Response cache is on: repeated identical calls are free.

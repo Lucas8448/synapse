@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "synapse-memory": {
+      "command": "python3",
+      "args": ["~/Github/synapse/memory/server.py"],
+      "env": {
+        "SYNAPSE_VAULT": "~/path/to/obsidian-vault"
+      }
+    }
+  }
+}

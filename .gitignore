@@ -1,0 +1,18 @@
+# Never commit secrets — covers .env, .env.local, .env.production, foo.env, at any depth
+.env*
+*.env
+!env/.env.example
+
+# Knowledge layer contents are per-machine / regenerable
+knowledge/*
+!knowledge/.gitkeep
+
+# Personal memory — synced by Proton Drive, NEVER by git (repo is public)
+memory/store/
+
+# Runtime
+*.log
+nohup.out
+__pycache__/
+node_modules/
+.DS_Store

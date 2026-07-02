@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# spine-sync — symlink adapters, validate env, (re)start the gateway.
+set -euo pipefail
+
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ENV_FILE="${SYNAPSE_ENV:-$HOME/.config/synapse/.env}"
+[[ -f "$ENV_FILE" ]] || ENV_FILE="$REPO/env/.env"   # fallback: gitignored repo env
+PORT="${SYNAPSE_PORT:-4000}"
+
+log() { printf '\033[1;36m[synapse]\033[0m %s\n' "$*"; }
+die() { printf '\033[1;31m[synapse]\033[0m %s\n' "$*" >&2; exit 1; }
+
+# 1. Env ----------------------------------------------------------------
+[[ -f "$ENV_FILE" ]] || die "missing $ENV_FILE — cp env/.env.example there and fill in keys"
+set -a; source "$ENV_FILE"; set +a
+for key in LITELLM_MASTER_KEY; do
+  [[ -n "${!key:-}" ]] || die "$key is empty in $ENV_FILE"
+done
+[[ -n "${OPENROUTER_API_KEY:-}" ]] || log "warn: OPENROUTER_API_KEY empty — all remote tiers will fail until set"
+
+# 2. Adapters -----------------------------------------------------------
+# Each dir under adapters/ has a `target` file: the path its contents symlink into.
+for dir in "$REPO"/adapters/*/; do
+  [[ -f "$dir/target" ]] || continue
+  target="$(eval echo "$(cat "$dir/target")")"   # expand ~ and $VARS
+  mkdir -p "$target"
+  find "$dir" -maxdepth 1 -type f ! -name target | while read -r f; do
+    ln -sfn "$f" "$target/$(basename "$f")"
+    log "linked $(basename "$dir")/$(basename "$f") -> $target/"
+  done
+done
+
+# 3. Gateway ------------------------------------------------------------
+command -v litellm >/dev/null || die "litellm not found — pip install 'litellm[proxy]'"
+if lsof -ti tcp:"$PORT" >/dev/null 2>&1; then
+  log "stopping gateway on :$PORT"
+  kill "$(lsof -ti tcp:"$PORT")" && sleep 1
+fi
+log "starting gateway on :$PORT"
+nohup litellm --config "$REPO/gateway/litellm.yaml" --port "$PORT" \
+  > "$HOME/.config/synapse/gateway.log" 2>&1 &
+
+sleep 2
+curl -sf "http://localhost:$PORT/health/liveliness" >/dev/null \
+  && log "gateway healthy — tiers: frontier | mid | bulk | local" \
+  || die "gateway failed to start — see ~/.config/synapse/gateway.log"
