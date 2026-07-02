@@ -71,7 +71,10 @@ def _notes() -> list[Path]:
         return []
     out = []
     for p in VAULT.rglob("*.md"):
-        if not any(part in SKIP_DIRS or part.startswith(".") for part in p.relative_to(VAULT).parts[:-1]):
+        if not any(
+            part in SKIP_DIRS or part.startswith(".") or "template" in part.lower()
+            for part in p.relative_to(VAULT).parts[:-1]
+        ):
             out.append(p)
     return sorted(out)
 
@@ -99,6 +102,7 @@ def _parse_note(path: Path) -> dict:
     """→ {entity, tags, blocks: [{id, text, links, tags}], relations: [(pred, target)]}"""
     entity = path.stem.lower()
     note_tags, body = _frontmatter_tags(path.read_text(errors="replace"))
+    body = re.sub(r"```.*?(```|\Z)", "", body, flags=re.S)  # code fences aren't facts
     rel = str(path.relative_to(VAULT))
     blocks, relations = [], []
     # split into blocks: blank-line-separated; bullets are their own block
@@ -120,6 +124,7 @@ def _parse_note(path: Path) -> dict:
     if buf:
         raw_blocks.append("\n".join(buf))
 
+    seen_ids: set[str] = set()
     for raw in raw_blocks:
         m = PREDICATE.match(raw)
         if m and WIKILINK.search(m.group(2)):  # typed relation, e.g. `uses:: [[claude]]`
@@ -130,9 +135,13 @@ def _parse_note(path: Path) -> dict:
         if len(text) < 8:  # skip stubs
             continue
         clean = WIKILINK.sub(lambda mm: mm.group(1), text)  # [[x|y]] → x for embedding
+        bid = hashlib.sha256(f"{rel}:{clean}".encode()).hexdigest()[:12]
+        if bid in seen_ids:  # identical line repeated in the same note = same fact
+            continue
+        seen_ids.add(bid)
         blocks.append(
             {
-                "id": hashlib.sha256(f"{rel}:{clean}".encode()).hexdigest()[:12],
+                "id": bid,
                 "text": clean[:2000],
                 "links": [t.strip().lower() for t in WIKILINK.findall(text)],
                 "tags": note_tags + HASHTAG.findall(text),
