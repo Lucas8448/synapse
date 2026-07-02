@@ -7,8 +7,9 @@ Source of truth: markdown notes in an Obsidian vault (SYNAPSE_VAULT).
   - remember/forget write ONLY inside SYNAPSE_AGENT_DIR (default: agent-memory/)
     so agents never touch your own notes.
 
-Cache: Kuzu graph + embedding matrix in ~/.cache/synapse (never synced),
-rebuilt automatically whenever any note changes.
+Cache: embedding matrix in ~/.cache/synapse (never synced); the graph is an
+in-memory index rebuilt automatically whenever any note changes (parsing a
+~200-note vault takes well under a second — no database needed).
 
 Embeddings: Ollama nomic-embed-text with task prefixes (search_document /
 search_query) and Matryoshka truncation to SYNAPSE_EMB_DIM (default 256).
@@ -23,12 +24,10 @@ import hashlib
 import json
 import os
 import re
-import shutil
-import time
 import urllib.request
+from collections import defaultdict
 from pathlib import Path
 
-import kuzu
 import numpy as np
 
 try:  # MCP is optional — the CLI works without it
@@ -68,7 +67,6 @@ _load_env()
 VAULT = Path(os.environ.get("SYNAPSE_VAULT", REPO / "store")).expanduser()
 AGENT_DIR = os.environ.get("SYNAPSE_AGENT_DIR", "agent-memory")
 CACHE = Path(os.environ.get("SYNAPSE_CACHE", Path.home() / ".cache" / "synapse")).expanduser()
-DB_PATH = CACHE / "memory.kuzu"
 EMB_FILE = CACHE / "embeddings.npz"
 
 OLLAMA = os.environ.get("OLLAMA_API_BASE", "http://localhost:11434")
@@ -182,18 +180,36 @@ def _vault_state() -> str:
     return h.hexdigest()
 
 
+class _Index:
+    """In-memory graph over the vault: entities, mentions, typed relations."""
+
+    def __init__(self, parsed: list[dict]):
+        self.blocks: dict[str, dict] = {}                       # id -> {text, note}
+        self.mentions: dict[str, list[str]] = defaultdict(list)  # entity -> [block ids]
+        self.rel_out: dict[str, list[tuple[str, str]]] = defaultdict(list)  # a -> [(pred, b)]
+        self.rel_in: dict[str, list[tuple[str, str]]] = defaultdict(list)   # b -> [(a, pred)]
+        for note in parsed:
+            for b in note["blocks"]:
+                self.blocks[b["id"]] = {"text": b["text"], "note": note["entity"]}
+                for target in {note["entity"], *b["links"]}:
+                    self.mentions[target].append(b["id"])
+            for pred, target in note["relations"]:
+                self.rel_out[note["entity"]].append((pred, target))
+                self.rel_in[target].append((note["entity"], pred))
+
+
 _state: str | None = None
-_conn: kuzu.Connection | None = None
+_index: _Index | None = None
 _parsed: list[dict] = []
 
 
 def _refresh() -> None:
-    global _state, _conn, _parsed
+    global _state, _index, _parsed
     s = _vault_state()
-    if s == _state and _conn is not None:
+    if s == _state and _index is not None:
         return
     _parsed = _parse_vault()
-    _conn = _rebuild_graph(_parsed)
+    _index = _Index(_parsed)
     _state = s
 
 
@@ -244,48 +260,6 @@ def _ensure_embeddings() -> dict[str, np.ndarray]:
         CACHE.mkdir(parents=True, exist_ok=True)
         np.savez_compressed(EMB_FILE, **cache)
     return cache
-
-
-# ── graph ────────────────────────────────────────────────────────────────
-def _rebuild_graph(parsed: list[dict]) -> kuzu.Connection:
-    if DB_PATH.exists():  # kuzu: dir in old versions, single file in new
-        shutil.rmtree(DB_PATH) if DB_PATH.is_dir() else DB_PATH.unlink()
-    for suffix in (".wal", ".shm"):
-        p = DB_PATH.with_name(DB_PATH.name + suffix)
-        if p.exists():
-            p.unlink()
-    CACHE.mkdir(parents=True, exist_ok=True)
-    db = kuzu.Database(str(DB_PATH))
-    conn = kuzu.Connection(db)
-    conn.execute("CREATE NODE TABLE Note(name STRING, path STRING, PRIMARY KEY(name))")
-    conn.execute("CREATE NODE TABLE Block(id STRING, text STRING, note STRING, PRIMARY KEY(id))")
-    conn.execute("CREATE REL TABLE MENTIONS(FROM Block TO Note)")
-    conn.execute("CREATE REL TABLE RELATES(FROM Note TO Note, predicate STRING)")
-
-    def ensure_note(name: str, path: str = "") -> None:
-        conn.execute("MERGE (n:Note {name: $n}) ON CREATE SET n.path = $p", {"n": name, "p": path})
-
-    for note in parsed:
-        ensure_note(note["entity"], note["path"])
-    for note in parsed:
-        for b in note["blocks"]:
-            conn.execute(
-                "CREATE (:Block {id: $id, text: $t, note: $n})",
-                {"id": b["id"], "t": b["text"], "n": note["entity"]},
-            )
-            for target in {note["entity"], *b["links"]}:
-                ensure_note(target)
-                conn.execute(
-                    "MATCH (b:Block {id: $id}), (n:Note {name: $n}) CREATE (b)-[:MENTIONS]->(n)",
-                    {"id": b["id"], "n": target},
-                )
-        for pred, target in note["relations"]:
-            ensure_note(target)
-            conn.execute(
-                "MATCH (a:Note {name: $a}), (b:Note {name: $b}) CREATE (a)-[:RELATES {predicate: $p}]->(b)",
-                {"a": note["entity"], "b": target, "p": pred},
-            )
-    return conn
 
 
 # ── tools ────────────────────────────────────────────────────────────────
@@ -342,17 +316,12 @@ def recall(query: str, k: int = 5, expand: bool = True) -> str:
 
     if expand and hits:
         ents = {e for _, b in hits for e in b["links"]} | {n["entity"] for n, _ in hits}
-        conn = _conn
         for e in ents:
-            res = conn.execute(
-                "MATCH (b:Block)-[:MENTIONS]->(:Note {name: $n}) RETURN b.id, b.note, b.text LIMIT 5",
-                {"n": e},
-            )
-            while res.has_next():
-                bid, bnote, btext = res.get_next()
+            for bid in _index.mentions.get(e, [])[:5]:
                 if bid not in seen:
                     seen.add(bid)
-                    out.append(f"[via {e}] ({bnote}) {btext}")
+                    blk = _index.blocks[bid]
+                    out.append(f"[via {e}] ({blk['note']}) {blk['text']}")
     return "\n".join(out[: k * 3]) if out else "no relevant facts"
 
 
@@ -377,26 +346,14 @@ def forget(fragment: str, note: str = "") -> str:
 def neighbors(entity: str) -> str:
     """Graph view of one note/entity: typed relations, linked notes, mentioning blocks."""
     _refresh()
-    conn = _conn
     name, out = entity.lower(), []
-    res = conn.execute(
-        "MATCH (a:Note {name: $n})-[r:RELATES]->(b:Note) RETURN r.predicate, b.name", {"n": name}
-    )
-    while res.has_next():
-        p, b = res.get_next()
+    for p, b in _index.rel_out.get(name, []):
         out.append(f"{name} --{p}--> {b}")
-    res = conn.execute(
-        "MATCH (a:Note)-[r:RELATES]->(b:Note {name: $n}) RETURN a.name, r.predicate", {"n": name}
-    )
-    while res.has_next():
-        a, p = res.get_next()
+    for a, p in _index.rel_in.get(name, []):
         out.append(f"{a} --{p}--> {name}")
-    res = conn.execute(
-        "MATCH (b:Block)-[:MENTIONS]->(:Note {name: $n}) RETURN b.note, b.text", {"n": name}
-    )
-    while res.has_next():
-        bnote, btext = res.get_next()
-        out.append(f"({bnote}) {btext}")
+    for bid in _index.mentions.get(name, []):
+        blk = _index.blocks[bid]
+        out.append(f"({blk['note']}) {blk['text']}")
     return "\n".join(out) if out else f"unknown entity: {entity}"
 
 

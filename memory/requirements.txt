@@ -1,3 +1,2 @@
 fastmcp>=2.0
-kuzu>=0.7
 numpy>=1.26

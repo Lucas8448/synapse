@@ -11,7 +11,7 @@ bullet you can see and edit in Obsidian, including in graph view.
 
 - **recall** indexes the whole vault (read-only over your notes)
 - **remember / forget** write ONLY inside `agent-memory/` — agents never touch your own notes
-- **Cache** (Kuzu graph + embeddings) lives in `~/.cache/synapse/`, rebuilt automatically when notes change. Never synced — only markdown crosses machines (via Proton Drive).
+- **Cache**: embeddings live in `~/.cache/synapse/`; the graph is an in-memory index rebuilt from the markdown in <1s whenever notes change (no database, no native deps). Never synced — only markdown crosses machines (via Proton Drive).
 
 ## Embeddings
 
