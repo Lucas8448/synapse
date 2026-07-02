@@ -46,6 +46,25 @@ class _CliOnly:
 
 
 REPO = Path(__file__).resolve().parent
+
+
+def _load_env() -> None:
+    """Load ../env/.env so no shell exports are needed. Real env vars win."""
+    env_file = REPO.parent / "env" / ".env"
+    if not env_file.exists():
+        return
+    for line in env_file.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        key, val = key.strip(), val.split("#")[0].strip().strip("'\"")
+        if key and key not in os.environ:
+            os.environ[key] = val
+
+
+_load_env()
+
 VAULT = Path(os.environ.get("SYNAPSE_VAULT", REPO / "store")).expanduser()
 AGENT_DIR = os.environ.get("SYNAPSE_AGENT_DIR", "agent-memory")
 CACHE = Path(os.environ.get("SYNAPSE_CACHE", Path.home() / ".cache" / "synapse")).expanduser()

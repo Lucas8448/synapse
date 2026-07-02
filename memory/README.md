@@ -22,11 +22,13 @@ Ollama is down. Env: `SYNAPSE_EMB_DIM`, `SYNAPSE_EMB_MODEL`, `OLLAMA_API_BASE`.
 
 ## Setup
 
+All config lives in `env/.env` (gitignored) — `SYNAPSE_VAULT` there points at the vault;
+the server loads it itself, no shell exports needed. Real env vars override if set.
+
 ```sh
 pip install -r memory/requirements.txt
 ollama pull nomic-embed-text
-export SYNAPSE_VAULT="$HOME/path/to/your/obsidian-vault"   # default: memory/store/
-claude mcp add synapse-memory --env SYNAPSE_VAULT="$SYNAPSE_VAULT" -- python3 <path-to-synapse>/memory/server.py
+claude mcp add synapse-memory -- python3 <path-to-synapse>/memory/server.py
 ```
 
 CLI works the same everywhere: `python3 server.py recall "..." | remember "..." | neighbors lucas | stats`.
