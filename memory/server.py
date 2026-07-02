@@ -431,7 +431,13 @@ def _cli() -> None:
     elif args.cmd == "stats":
         print(stats())
     else:
-        mcp.run()  # no subcommand → serve MCP
+        # no subcommand → serve MCP over stdio.
+        # show_banner=False: the banner does a blocking PyPI version check that
+        # can delay/break the stdio handshake with strict clients.
+        try:
+            mcp.run(show_banner=False)
+        except TypeError:  # older fastmcp without the kwarg
+            mcp.run()
 
 
 if __name__ == "__main__":
