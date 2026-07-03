@@ -50,7 +50,11 @@ mkdir -p "$HOME/.config/synapse"
 nohup "$LITELLM" --config "$REPO/gateway/litellm.yaml" --port "$PORT" \
   > "$HOME/.config/synapse/gateway.log" 2>&1 &
 
-sleep 2
-curl -sf "http://localhost:$PORT/health/liveliness" >/dev/null \
-  && log "gateway healthy — tiers: frontier | mid | bulk | local" \
-  || die "gateway failed to start — see ~/.config/synapse/gateway.log"
+for _ in $(seq 1 30); do
+  sleep 1
+  if curl -sf "http://localhost:$PORT/health/liveliness" >/dev/null 2>&1; then
+    log "gateway healthy — tiers: frontier | mid | bulk | low | local"
+    exit 0
+  fi
+done
+die "gateway not up after 30s — tail -30 ~/.config/synapse/gateway.log"
