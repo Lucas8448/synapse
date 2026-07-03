@@ -47,7 +47,7 @@ if lsof -ti tcp:"$PORT" >/dev/null 2>&1; then
 fi
 log "starting gateway on :$PORT"
 mkdir -p "$HOME/.config/synapse"
-nohup "$LITELLM" --config "$REPO/gateway/litellm.yaml" --port "$PORT" \
+nohup "$LITELLM" --config "$REPO/gateway/litellm.yaml" --host 127.0.0.1 --port "$PORT" \
   > "$HOME/.config/synapse/gateway.log" 2>&1 &
 
 for _ in $(seq 1 30); do
