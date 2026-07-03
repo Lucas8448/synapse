@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- synapse gateway as a launchd user agent: starts at login, restarts on
+     crash. Install:
+       cp gateway/com.synapse.gateway.plist ~/Library/LaunchAgents/
+       launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.synapse.gateway.plist
+     The config is read via the ~/.config/synapse/litellm.yaml symlink so the
+     repo stays the single source of truth. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.synapse.gateway</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>-c</string>
+    <string>set -a; source "$HOME/.config/synapse/.env"; set +a; exec "$HOME/.local/bin/litellm" --config "$HOME/.config/synapse/litellm.yaml" --port 4000</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+  <key>StandardOutPath</key>
+  <string>/tmp/synapse-gateway.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/synapse-gateway.log</string>
+</dict>
+</plist>

@@ -31,13 +31,16 @@ for dir in "$REPO"/adapters/*/; do
 done
 
 # 3. Gateway ------------------------------------------------------------
-command -v litellm >/dev/null || die "litellm not found — pip install 'litellm[proxy]'"
+LITELLM="$REPO/.venv/bin/litellm"                       # prefer repo venv
+command -v "$LITELLM" >/dev/null || LITELLM="litellm"   # else PATH
+command -v "$LITELLM" >/dev/null || die "litellm not found — .venv/bin/pip install 'litellm[proxy]'"
 if lsof -ti tcp:"$PORT" >/dev/null 2>&1; then
   log "stopping gateway on :$PORT"
   kill "$(lsof -ti tcp:"$PORT")" && sleep 1
 fi
 log "starting gateway on :$PORT"
-nohup litellm --config "$REPO/gateway/litellm.yaml" --port "$PORT" \
+mkdir -p "$HOME/.config/synapse"
+nohup "$LITELLM" --config "$REPO/gateway/litellm.yaml" --port "$PORT" \
   > "$HOME/.config/synapse/gateway.log" 2>&1 &
 
 sleep 2
