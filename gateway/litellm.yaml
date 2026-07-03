@@ -47,8 +47,25 @@ litellm_settings:
   cache_params:
     type: local
   drop_params: true # silently drop provider-unsupported params instead of erroring
+  mcp_aliases:
+    synapse: synapse_memory # short name → server, so the route is /synapse/mcp
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY # gateway auth — any non-empty secret
   max_budget: 20 # hard monthly ceiling, USD
   budget_duration: 30d
+
+# ── MCP: expose the synapse memory server's tools THROUGH the gateway.
+# Reachable at  http://localhost:4000/synapse/mcp  (native MCP clients) and usable
+# from /v1/chat/completions by sending a tools block:
+#   {"type":"mcp","server_url":"litellm_proxy/synapse/mcp","server_label":"synapse","require_approval":"never"}
+mcp_servers:
+  synapse_memory:
+    transport: stdio
+    command: "./.venv/bin/python" # venv python (has fastmcp+numpy); basename passes the stdio allowlist
+    args: ["memory/server.py"] # resolved from repo root — spine-sync cd's there before launch
+    env: # litellm hands this env to the subprocess AS-IS, so pass through everything it needs
+      SYNAPSE_VAULT: os.environ/SYNAPSE_VAULT # index your real Obsidian vault, not the default store/
+      HOME: os.environ/HOME # server writes its embedding cache under ~/.cache/synapse
+      PATH: os.environ/PATH
+    allow_all_keys: true # no DB in this deployment — let the master key reach it

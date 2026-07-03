@@ -41,12 +41,14 @@ done
 LITELLM="$REPO/.venv/bin/litellm"                       # prefer repo venv
 command -v "$LITELLM" >/dev/null || LITELLM="litellm"   # else PATH
 command -v "$LITELLM" >/dev/null || die "litellm not found — .venv/bin/pip install 'litellm[proxy]'"
-if lsof -ti tcp:"$PORT" >/dev/null 2>&1; then
+if pids="$(lsof -ti tcp:"$PORT" 2>/dev/null)" && [[ -n "$pids" ]]; then
   log "stopping gateway on :$PORT"
-  kill "$(lsof -ti tcp:"$PORT")" && sleep 1
+  while IFS= read -r pid; do [[ -n "$pid" ]] && kill "$pid" 2>/dev/null || true; done <<<"$pids"
+  sleep 1
 fi
 log "starting gateway on :$PORT"
 mkdir -p "$HOME/.config/synapse"
+cd "$REPO" # stdio MCP servers resolve repo-relative paths (./.venv/bin/python, memory/server.py)
 nohup "$LITELLM" --config "$REPO/gateway/litellm.yaml" --host 127.0.0.1 --port "$PORT" \
   > "$HOME/.config/synapse/gateway.log" 2>&1 &
 
