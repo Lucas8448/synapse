@@ -12,7 +12,14 @@ die() { printf '\033[1;31m[synapse]\033[0m %s\n' "$*" >&2; exit 1; }
 
 # 1. Env ----------------------------------------------------------------
 [[ -f "$ENV_FILE" ]] || die "missing $ENV_FILE — cp env/.env.example there and fill in keys"
-set -a; source "$ENV_FILE"; set +a
+# parse KEY=VALUE lines instead of sourcing — a malformed line must never execute
+while IFS= read -r line; do
+  [[ "$line" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]] || continue
+  key="${line%%=*}"
+  val="${line#*=}"
+  val="${val%\"}"; val="${val#\"}"; val="${val%\'}"; val="${val#\'}"
+  export "$key=$val"
+done < "$ENV_FILE"
 for key in LITELLM_MASTER_KEY; do
   [[ -n "${!key:-}" ]] || die "$key is empty in $ENV_FILE"
 done
