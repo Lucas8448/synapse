@@ -25,6 +25,11 @@ for key in LITELLM_MASTER_KEY; do
 done
 [[ -n "${OPENROUTER_API_KEY:-}" ]] || log "warn: OPENROUTER_API_KEY empty — all remote tiers will fail until set"
 
+# The `agents` MCP server calls the gateway back and reads the key under a
+# distinct name (litellm special-cases LITELLM_MASTER_KEY and would resolve it
+# to None inside an MCP env block, crashing startup). Same value, safe name.
+export SYNAPSE_MASTER_KEY="${LITELLM_MASTER_KEY:-}"
+
 # Ensure uvx / npx / node / python3 for the stdio MCP servers are reachable
 # (launchd starts with a minimal PATH; harmless when already present).
 export PATH="/opt/homebrew/bin:$HOME/.local/bin:/usr/local/bin:$PATH"

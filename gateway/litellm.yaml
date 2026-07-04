@@ -136,7 +136,7 @@ mcp_servers:
     command: "./.venv/bin/python"
     args: ["agents/server.py"] # resolved from repo root — launcher cd's there first
     env:
-      LITELLM_MASTER_KEY: os.environ/LITELLM_MASTER_KEY # to call /v1/chat/completions
+      SYNAPSE_MASTER_KEY: os.environ/SYNAPSE_MASTER_KEY # gateway auth key (copy of LITELLM_MASTER_KEY; separate name dodges litellm's master-key special-casing and never resolves to None)
       SYNAPSE_PORT: os.environ/SYNAPSE_PORT # which port the gateway listens on (exported by the launcher)
       PATH: os.environ/PATH
       HOME: os.environ/HOME

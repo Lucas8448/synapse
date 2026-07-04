@@ -81,7 +81,11 @@ GATEWAY_URL = (
     os.environ.get("SYNAPSE_GATEWAY_URL", "").strip()
     or f"http://127.0.0.1:{_PORT}"
 ).rstrip("/")
-MASTER_KEY = os.environ.get("LITELLM_MASTER_KEY", "").strip()
+MASTER_KEY = (
+    os.environ.get("SYNAPSE_MASTER_KEY")
+    or os.environ.get("LITELLM_MASTER_KEY")
+    or ""
+).strip()
 TIMEOUT = float(os.environ.get("SYNAPSE_SUBAGENT_TIMEOUT", "300") or "300")
 MAX_FANOUT = int(os.environ.get("SYNAPSE_SUBAGENT_MAX_FANOUT", "8") or "8")
 

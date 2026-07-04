@@ -19,7 +19,7 @@
   <array>
     <string>/bin/bash</string>
     <string>-c</string>
-    <string>set -a; source "$HOME/.config/synapse/.env"; set +a; export PATH="/opt/homebrew/bin:$HOME/.local/bin:/usr/local/bin:$PATH"; export MCP_TOOL_PREFIX_SEPARATOR=_; export SYNAPSE_FILES_ROOT="${SYNAPSE_FILES_ROOT:-$HOME}"; export SYNAPSE_PORT="${SYNAPSE_PORT:-4000}"; T="$(/opt/homebrew/bin/gh auth token 2>/dev/null || true)"; [ -n "$T" ] &amp;&amp; export GITHUB_MCP_TOKEN="Bearer $T"; cfg="$HOME/.config/synapse/litellm.yaml"; cd "$(python3 -c 'import os,sys;print(os.path.dirname(os.path.dirname(os.path.realpath(sys.argv[1]))))' "$cfg")" &amp;&amp; exec "$HOME/.local/bin/litellm" --config "$cfg" --port "$SYNAPSE_PORT"</string>
+    <string>while IFS= read -r l || [ -n "$l" ]; do case "$l" in ''|\#*) continue;; *=*) k="${l%%=*}"; v="${l#*=}"; v="${v%\"}"; v="${v#\"}"; v="${v%\'}"; v="${v#\'}"; export "$k=$v";; esac; done &lt; "$HOME/.config/synapse/.env"; export SYNAPSE_MASTER_KEY="${LITELLM_MASTER_KEY:-}"; export PATH="/opt/homebrew/bin:$HOME/.local/bin:/usr/local/bin:$PATH"; export MCP_TOOL_PREFIX_SEPARATOR=_; export SYNAPSE_FILES_ROOT="${SYNAPSE_FILES_ROOT:-$HOME}"; export SYNAPSE_PORT="${SYNAPSE_PORT:-4000}"; T="$(/opt/homebrew/bin/gh auth token 2>/dev/null || true)"; [ -n "$T" ] &amp;&amp; export GITHUB_MCP_TOKEN="Bearer $T"; cfg="$HOME/.config/synapse/litellm.yaml"; cd "$(python3 -c 'import os,sys;print(os.path.dirname(os.path.dirname(os.path.realpath(sys.argv[1]))))' "$cfg")" &amp;&amp; exec "$HOME/.local/bin/litellm" --config "$cfg" --port "$SYNAPSE_PORT"</string>
   </array>
   <key>RunAtLoad</key>
   <true/>
