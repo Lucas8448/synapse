@@ -47,8 +47,6 @@ litellm_settings:
   cache_params:
     type: local
   drop_params: true # silently drop provider-unsupported params instead of erroring
-  mcp_aliases:
-    synapse: synapse_memory # short name → server, so the route is /synapse/mcp
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY # gateway auth — any non-empty secret
@@ -59,8 +57,11 @@ general_settings:
 # Reachable at  http://localhost:4000/synapse/mcp  (native MCP clients) and usable
 # from /v1/chat/completions by sending a tools block:
 #   {"type":"mcp","server_url":"litellm_proxy/synapse/mcp","server_label":"synapse","require_approval":"never"}
+# The server key IS the route name and the tool-name prefix (synapse-<tool>). Keep it
+# alias-free: litellm derives the prefix from an alias but maps tools back by server
+# name, so an alias here would break server-side auto-execution (Unknown tool: synapse-*).
 mcp_servers:
-  synapse_memory:
+  synapse:
     transport: stdio
     command: "./.venv/bin/python" # venv python (has fastmcp+numpy); basename passes the stdio allowlist
     args: ["memory/server.py"] # resolved from repo root — spine-sync cd's there before launch
