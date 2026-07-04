@@ -37,7 +37,16 @@ for dir in "$REPO"/adapters/*/; do
   done
 done
 
-# 3. Gateway ------------------------------------------------------------
+# 3. Gateway config -----------------------------------------------------
+# litellm resolves callback modules relative to the config file's dir, so the
+# gateway config AND its proxy callbacks must sit together where the config is
+# loaded from. launchd loads ~/.config/synapse/litellm.yaml; link both there.
+mkdir -p "$HOME/.config/synapse"
+ln -sfn "$REPO/gateway/litellm.yaml" "$HOME/.config/synapse/litellm.yaml"
+ln -sfn "$REPO/gateway/mcp_autoinject.py" "$HOME/.config/synapse/mcp_autoinject.py"
+log "linked gateway config + callbacks -> ~/.config/synapse/"
+
+# 4. Gateway ------------------------------------------------------------
 LITELLM="$REPO/.venv/bin/litellm"                       # prefer repo venv
 command -v "$LITELLM" >/dev/null || LITELLM="litellm"   # else PATH
 command -v "$LITELLM" >/dev/null || die "litellm not found — .venv/bin/pip install 'litellm[proxy]'"

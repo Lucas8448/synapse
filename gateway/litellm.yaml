@@ -47,6 +47,7 @@ litellm_settings:
   cache_params:
     type: local
   drop_params: true # silently drop provider-unsupported params instead of erroring
+  callbacks: ["mcp_autoinject.mcp_tools_autoinject"] # auto-attach synapse tools to every chat/responses call
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY # gateway auth — any non-empty secret
