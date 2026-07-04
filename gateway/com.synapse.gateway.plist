@@ -8,7 +8,9 @@
      repo stays the single source of truth. It cd's into the repo (resolved from
      that symlink) first so the MCP stdio server's relative paths resolve.
      MCP_TOOL_PREFIX_SEPARATOR=_ exposes tools as synapse_<tool> (underscore) —
-     models emit hyphenated function names unreliably. -->
+     models emit hyphenated function names unreliably. SYNAPSE_FILES_ROOT scopes
+     the filesystem MCP server (default: $HOME; override in .env). GITHUB_MCP_TOKEN
+     is refreshed from `gh auth token` at launch (falls back to the .env value). -->
 <plist version="1.0">
 <dict>
   <key>Label</key>
@@ -17,7 +19,7 @@
   <array>
     <string>/bin/bash</string>
     <string>-c</string>
-    <string>set -a; source "$HOME/.config/synapse/.env"; set +a; export MCP_TOOL_PREFIX_SEPARATOR=_; cfg="$HOME/.config/synapse/litellm.yaml"; cd "$(python3 -c 'import os,sys;print(os.path.dirname(os.path.dirname(os.path.realpath(sys.argv[1]))))' "$cfg")" &amp;&amp; exec "$HOME/.local/bin/litellm" --config "$cfg" --port 4000</string>
+    <string>set -a; source "$HOME/.config/synapse/.env"; set +a; export MCP_TOOL_PREFIX_SEPARATOR=_; export SYNAPSE_FILES_ROOT="${SYNAPSE_FILES_ROOT:-$HOME}"; T="$(/opt/homebrew/bin/gh auth token 2>/dev/null || true)"; [ -n "$T" ] &amp;&amp; export GITHUB_MCP_TOKEN="Bearer $T"; cfg="$HOME/.config/synapse/litellm.yaml"; cd "$(python3 -c 'import os,sys;print(os.path.dirname(os.path.dirname(os.path.realpath(sys.argv[1]))))' "$cfg")" &amp;&amp; exec "$HOME/.local/bin/litellm" --config "$cfg" --port 4000</string>
   </array>
   <key>RunAtLoad</key>
   <true/>

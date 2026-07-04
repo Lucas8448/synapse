@@ -47,20 +47,24 @@ litellm_settings:
   cache_params:
     type: local
   drop_params: true # silently drop provider-unsupported params instead of erroring
-  callbacks: ["mcp_autoinject.mcp_tools_autoinject"] # auto-attach synapse tools to every chat/responses call
+  callbacks: ["mcp_autoinject.mcp_tools_autoinject"] # auto-attach the curated MCP toolbox to every chat/responses call
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY # gateway auth — any non-empty secret
   max_budget: 20 # hard monthly ceiling, USD
   budget_duration: 30d
 
-# ── MCP: expose the synapse memory server's tools THROUGH the gateway.
-# Reachable at  http://localhost:4000/synapse/mcp  (native MCP clients) and usable
-# from /v1/chat/completions by sending a tools block:
-#   {"type":"mcp","server_url":"litellm_proxy/synapse/mcp","server_label":"synapse","require_approval":"never"}
-# The server key IS the route name and the tool-name prefix (synapse-<tool>). Keep it
-# alias-free: litellm derives the prefix from an alias but maps tools back by server
-# name, so an alias here would break server-side auto-execution (Unknown tool: synapse-*).
+# ── MCP: a unified tool hub exposed THROUGH the gateway. Each server is reachable
+# at  http://localhost:4000/<name>/mcp  (native MCP clients) and from
+# /v1/chat/completions by sending a tools block:
+#   {"type":"mcp","server_url":"litellm_proxy/mcp/<name>","server_label":"<name>","require_approval":"never"}
+# gateway/mcp_autoinject.py auto-attaches a curated subset to every request so
+# apps need zero MCP setup (memory + web everywhere; read-only files/git/github
+# on capable tiers). Keep every server key single-word and alias-free: litellm
+# derives the tool-name prefix from an alias but maps tools back by server name,
+# so an alias would break server-side auto-execution (Unknown tool: <name>_*).
+# NOTE: 'websearch' must NOT be named 'search' — /search/mcp collides with
+# litellm's built-in /search endpoint.
 mcp_servers:
   synapse:
     transport: stdio
@@ -71,3 +75,52 @@ mcp_servers:
       HOME: os.environ/HOME # server writes its embedding cache under ~/.cache/synapse
       PATH: os.environ/PATH
     allow_all_keys: true # no DB in this deployment — let the master key reach it
+
+  # ── fetch: pull a URL down to markdown. No key, read-only.
+  fetch:
+    transport: stdio
+    command: uvx
+    args: ["mcp-server-fetch"]
+    env: {PATH: os.environ/PATH, HOME: os.environ/HOME}
+    allow_all_keys: true
+
+  # ── websearch: DuckDuckGo search + page fetch. No key. (Name avoids /search.)
+  websearch:
+    transport: stdio
+    command: uvx
+    args: ["duckduckgo-mcp-server"]
+    env: {PATH: os.environ/PATH, HOME: os.environ/HOME}
+    allow_all_keys: true
+
+  # ── files: local filesystem. Rooted at $SYNAPSE_FILES_ROOT (default: repo dir).
+  # os.environ/ is NOT resolved inside args-list strings, so a python3 shim (an
+  # allowlisted command) reads the root from the resolved env and execs the server.
+  files:
+    transport: stdio
+    command: python3
+    args:
+      - "-c"
+      - "import os; os.execvp('npx', ['npx','-y','@modelcontextprotocol/server-filesystem', os.environ.get('SYNAPSE_FILES_ROOT') or os.getcwd()])"
+    env:
+      PATH: os.environ/PATH
+      HOME: os.environ/HOME
+      SYNAPSE_FILES_ROOT: os.environ/SYNAPSE_FILES_ROOT
+    allow_all_keys: true
+
+  # ── git: read/inspect any git repo (tools take a repo_path per call).
+  git:
+    transport: stdio
+    command: uvx
+    args: ["mcp-server-git"]
+    env: {PATH: os.environ/PATH, HOME: os.environ/HOME}
+    allow_all_keys: true
+
+  # ── github: GitHub's remote MCP. auth_type MUST be 'authorization' — litellm's
+  # 'bearer_token' path sends a redacted '******', so the token value itself
+  # carries the 'Bearer ' prefix (set from `gh auth token` by the plist/spine-sync).
+  github:
+    transport: http
+    url: "https://api.githubcopilot.com/mcp/"
+    auth_type: authorization
+    authentication_token: os.environ/GITHUB_MCP_TOKEN
+    allow_all_keys: true
