@@ -25,6 +25,10 @@ for key in LITELLM_MASTER_KEY; do
 done
 [[ -n "${OPENROUTER_API_KEY:-}" ]] || log "warn: OPENROUTER_API_KEY empty — all remote tiers will fail until set"
 
+# Expose MCP tools as synapse_<tool> (underscore): models emit hyphenated
+# function names unreliably, so keep the prefix separator LLM-friendly.
+export MCP_TOOL_PREFIX_SEPARATOR="${MCP_TOOL_PREFIX_SEPARATOR:-_}"
+
 # 2. Adapters -----------------------------------------------------------
 # Each dir under adapters/ has a `target` file: the path its contents symlink into.
 for dir in "$REPO"/adapters/*/; do
