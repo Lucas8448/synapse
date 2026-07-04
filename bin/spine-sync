@@ -25,6 +25,10 @@ for key in LITELLM_MASTER_KEY; do
 done
 [[ -n "${OPENROUTER_API_KEY:-}" ]] || log "warn: OPENROUTER_API_KEY empty — all remote tiers will fail until set"
 
+# Ensure uvx / npx / node / python3 for the stdio MCP servers are reachable
+# (launchd starts with a minimal PATH; harmless when already present).
+export PATH="/opt/homebrew/bin:$HOME/.local/bin:/usr/local/bin:$PATH"
+
 # Expose MCP tools as synapse_<tool> (underscore): models emit hyphenated
 # function names unreliably, so keep the prefix separator LLM-friendly.
 export MCP_TOOL_PREFIX_SEPARATOR="${MCP_TOOL_PREFIX_SEPARATOR:-_}"
