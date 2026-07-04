@@ -5,7 +5,8 @@
        cp gateway/com.synapse.gateway.plist ~/Library/LaunchAgents/
        launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.synapse.gateway.plist
      The config is read via the ~/.config/synapse/litellm.yaml symlink so the
-     repo stays the single source of truth. -->
+     repo stays the single source of truth. It cd's into the repo (resolved from
+     that symlink) first so the MCP stdio server's relative paths resolve. -->
 <plist version="1.0">
 <dict>
   <key>Label</key>
@@ -14,7 +15,7 @@
   <array>
     <string>/bin/bash</string>
     <string>-c</string>
-    <string>set -a; source "$HOME/.config/synapse/.env"; set +a; exec "$HOME/.local/bin/litellm" --config "$HOME/.config/synapse/litellm.yaml" --port 4000</string>
+    <string>set -a; source "$HOME/.config/synapse/.env"; set +a; cfg="$HOME/.config/synapse/litellm.yaml"; cd "$(python3 -c 'import os,sys;print(os.path.dirname(os.path.dirname(os.path.realpath(sys.argv[1]))))' "$cfg")" &amp;&amp; exec "$HOME/.local/bin/litellm" --config "$cfg" --port 4000</string>
   </array>
   <key>RunAtLoad</key>
   <true/>
