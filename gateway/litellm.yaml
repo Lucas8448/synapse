@@ -60,9 +60,10 @@ general_settings:
 #   {"type":"mcp","server_url":"litellm_proxy/mcp/<name>","server_label":"<name>","require_approval":"never"}
 # gateway/mcp_autoinject.py auto-attaches a curated subset to every request so
 # apps need zero MCP setup (memory + web everywhere; read-only files/git/github
-# on capable tiers). Keep every server key single-word and alias-free: litellm
-# derives the tool-name prefix from an alias but maps tools back by server name,
-# so an alias would break server-side auto-execution (Unknown tool: <name>_*).
+# on capable tiers; lower-tier subagents via the `agents` server). Keep every
+# server key single-word and alias-free: litellm derives the tool-name prefix
+# from an alias but maps tools back by server name, so an alias would break
+# server-side auto-execution (Unknown tool: <name>_*).
 # NOTE: 'websearch' must NOT be named 'search' — /search/mcp collides with
 # litellm's built-in /search endpoint.
 mcp_servers:
@@ -123,4 +124,20 @@ mcp_servers:
     url: "https://api.githubcopilot.com/mcp/"
     auth_type: authorization
     authentication_token: os.environ/GITHUB_MCP_TOKEN
+    allow_all_keys: true
+
+  # ── agents: delegation hierarchy. Exposes to_mid/to_bulk/to_low/to_local tools
+  # that spin up a subagent on that tier by calling THIS gateway back (needs the
+  # master key + port). mcp_autoinject.py hands each caller only the tools for
+  # tiers below it, so any model can offload work to cheaper subagents. Local
+  # ./venv python (same interpreter as synapse); basename passes the allowlist.
+  agents:
+    transport: stdio
+    command: "./.venv/bin/python"
+    args: ["agents/server.py"] # resolved from repo root — launcher cd's there first
+    env:
+      LITELLM_MASTER_KEY: os.environ/LITELLM_MASTER_KEY # to call /v1/chat/completions
+      SYNAPSE_PORT: os.environ/SYNAPSE_PORT # which port the gateway listens on (exported by the launcher)
+      PATH: os.environ/PATH
+      HOME: os.environ/HOME
     allow_all_keys: true

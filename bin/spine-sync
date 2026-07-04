@@ -38,6 +38,10 @@ export MCP_TOOL_PREFIX_SEPARATOR="${MCP_TOOL_PREFIX_SEPARATOR:-_}"
 # theoretical exfiltration path; point this at a code dir, not secrets).
 export SYNAPSE_FILES_ROOT="${SYNAPSE_FILES_ROOT:-$HOME}"
 
+# Gateway port — exported so the `agents` MCP server (subagent delegation) knows
+# which port to call back on when it spins up a lower-tier subagent.
+export SYNAPSE_PORT="$PORT"
+
 # GitHub remote MCP token — refresh from the user's gh if available (the value
 # carries the 'Bearer ' prefix, since litellm's bearer_token auth path is broken).
 if command -v gh >/dev/null 2>&1 && gh auth token >/dev/null 2>&1; then

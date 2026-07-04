@@ -5,12 +5,16 @@ zero per-app MCP setup: this pre-call hook injects ``litellm_proxy`` MCP tool
 blocks, and LiteLLM's own auto-execution (``require_approval: never``) lists +
 runs the tools server-side and folds the results back into the reply.
 
-Two tiers of tools (see the policy block below):
+Three tiers of tools (see the policy block below):
   * LEAN  — memory + web, attached to EVERY request. Cheap and safe.
   * RICH  — filesystem / git / GitHub, attached only to capable model tiers and
             curated down to READ-ONLY tools so a blanket auto-attach can't make
             destructive changes. The full tool sets stay reachable by asking for
             a server explicitly (server_url: litellm_proxy/mcp/<name>).
+  * AGENTS — delegation. Each caller is handed `agents_to_<tier>` tools for the
+            tiers STRICTLY BELOW it (frontier can spawn mid/bulk/low/local, mid
+            can spawn bulk/low/local, ... local can spawn nothing), so any model
+            can offload subtasks to cheaper subagents. Bounded by the ladder.
 
 Loaded via ``litellm_settings.callbacks`` in gateway/litellm.yaml. LiteLLM
 resolves the module relative to the config file's directory, so this file is
@@ -69,6 +73,14 @@ RICH_SERVERS: dict = {
 # which keeps small models focused and paid calls lean. To attach the rich tools
 # everywhere, add the other tiers here (mind the added per-call token cost).
 CAPABLE_TIERS = {"frontier", "mid", "local"}
+
+# AGENTS — delegation hierarchy. TIER_ORDER runs most-capable -> least; a caller
+# on tier T is handed the `agents` server scoped to the tiers strictly BELOW T,
+# so every model can spin up cheaper subagents but never a peer/higher one (and
+# `local`, at the bottom, gets none). This bounds recursion to the ladder depth.
+# The tools are served by agents/server.py (registered as the `agents` MCP server).
+TIER_ORDER = ["frontier", "mid", "bulk", "low", "local"]
+AGENTS_SERVER = "agents"
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Only user-facing text-generation calls take a tools list. Everything else
@@ -76,11 +88,23 @@ CAPABLE_TIERS = {"frontier", "mid", "local"}
 ELIGIBLE_CALL_TYPES = {"completion", "acompletion", "responses", "aresponses"}
 
 
+def _delegate_tools_for(model: Optional[str]) -> list:
+    """`agents_to_<tier>` tool names for tiers strictly below the caller's."""
+    m = (model or "").strip()
+    if m not in TIER_ORDER:
+        return []  # direct provider model / unknown alias — no delegation
+    lower = TIER_ORDER[TIER_ORDER.index(m) + 1:]
+    return [f"{AGENTS_SERVER}_to_{t}" for t in lower]
+
+
 def _servers_for(model: Optional[str]) -> dict:
     """Return {server_name: allowed_tools} to attach for the requested model."""
     servers = dict(LEAN_SERVERS)
     if (model or "").strip() in CAPABLE_TIERS:
         servers.update(RICH_SERVERS)
+    delegate = _delegate_tools_for(model)
+    if delegate:
+        servers[AGENTS_SERVER] = delegate
     return servers
 
 

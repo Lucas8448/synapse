@@ -16,6 +16,22 @@ One local gateway ([LiteLLM](https://docs.litellm.ai/docs/proxy/quick_start)) + 
 
 Fallbacks: `frontier → mid → bulk → low → local`. Hard budget cap: $20/mo.
 
+## Tools (auto-attached)
+
+Every chat/responses call gets a curated MCP toolbox injected by the gateway —
+apps need **zero** MCP setup. A pre-call hook (`gateway/mcp_autoinject.py`)
+attaches tools by tier:
+
+- **Everywhere** — `synapse` personal memory (Obsidian knowledge graph) + web
+  `fetch` / `websearch`.
+- **Capable tiers** (`frontier`/`mid`/`local`) — read-only `files`, `git`, and
+  `github` (47 tools). Curated to read-only so a blanket attach can't mutate.
+- **Delegation** — each tier is handed `agents_to_<tier>` tools for the tiers
+  **below** it, so any model can spin up cheaper **subagents** (with their own
+  toolbox) and fan out work. See [`agents/`](agents/README.md).
+
+Each server is also reachable directly at `http://localhost:4000/<name>/mcp`.
+
 ## Setup
 
 ```sh
@@ -35,7 +51,9 @@ model    = frontier | mid | bulk | local
 ## Layout
 
 ```
-gateway/    litellm.yaml (tiers, fallbacks, budget), docker-compose.yml
+gateway/    litellm.yaml (tiers, fallbacks, budget), mcp_autoinject.py (tool hub), docker-compose.yml
+memory/     synapse memory MCP server — Obsidian knowledge graph + vector recall
+agents/     delegation MCP server — subagents on lower tiers (fanout, offload)
 env/        .env.example — key NAMES only; real keys live in ~/.config/synapse/.env
 prompts/    shared system prompts, tool-agnostic; adapters reference these
 knowledge/  codex + graphify outputs per repo (symlinked in, gitignored contents)
