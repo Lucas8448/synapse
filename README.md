@@ -48,6 +48,16 @@ base_url = http://localhost:4000
 model    = frontier | mid | bulk | local
 ```
 
+## Deploy (VPS)
+
+```sh
+cd /opt/synapse/gateway
+docker network create cortex || true   # once per host
+chmod +x up.sh
+./up.sh
+curl localhost:4000/health/liveliness
+```
+
 ## Layout
 
 ```

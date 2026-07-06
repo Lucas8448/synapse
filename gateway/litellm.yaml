@@ -28,6 +28,12 @@ model_list:
       api_key: os.environ/OPENROUTER_API_KEY
 
   # ── local: offline fallback. Zero cost, zero network.
+  # TODO(container): inside Docker, localhost:11434 is the CONTAINER's own loopback,
+  # not the Ollama host — so this tier is unreachable from the VPS container. Point
+  # api_base at the Ollama box's Tailscale hostname once the tailnet name is chosen
+  # (e.g. http://<tailnet-host>:11434). litellm connects to providers lazily, so an
+  # unreachable local only errors if the fallback chain reaches `local`; it does not
+  # block gateway startup.
   - model_name: local
     litellm_params:
       model: ollama/qwen3.6:35b-a3b

@@ -1,16 +1,31 @@
-# Optional: run the gateway in Docker instead of `litellm --config`.
-# Usage: docker compose --env-file ~/.config/synapse/.env up -d
 services:
-  gateway:
-    image: ghcr.io/berriai/litellm:main-latest
-    command: ["--config", "/app/config.yaml", "--port", "4000"]
-    ports:
-      - "127.0.0.1:4000:4000"   # localhost only — never expose the gateway
-    volumes:
-      - ./litellm.yaml:/app/config.yaml:ro
-    environment:
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
-      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
-    extra_hosts:
-      - "host.docker.internal:host-gateway"   # reach Ollama on the host
+  synapse:
+    image: ghcr.io/berriai/litellm:v1.83.14-stable
+    container_name: synapse
     restart: unless-stopped
+    ports:
+      - "127.0.0.1:4000:4000"
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+    environment:
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?run ./up.sh}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:?run ./up.sh}
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "/app/.venv/bin/python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:4000/health/liveliness', timeout=5)"
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 45s
+    networks:
+      - cortex
+
+networks:
+  cortex:
+    external: true

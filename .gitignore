@@ -1,4 +1,5 @@
 # Never commit secrets — covers .env, .env.local, .env.production, foo.env, at any depth
+.env
 .env*
 *.env
 !env/.env.example
