@@ -4,7 +4,6 @@ services:
     container_name: synapse
     restart: unless-stopped
     ports:
-      - "127.0.0.1:4000:4000"
       - "4000:4000"
     volumes:
       - ./config.yaml:/app/config.yaml:ro
