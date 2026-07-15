@@ -28,10 +28,9 @@ model_list:
       api_key: os.environ/OPENROUTER_API_KEY
 
   # ── local: offline fallback. Zero cost, zero network.
-  # TODO(container): inside Docker, localhost:11434 is the CONTAINER's own loopback,
-  # not the Ollama host — so this tier is unreachable from the VPS container. Point
-  # api_base at the Ollama box's Tailscale hostname once the tailnet name is chosen
-  # (e.g. http://<tailnet-host>:11434). litellm connects to providers lazily, so an
+  # TODO(container): inside Docker, localhost:11434 is the container's own loopback.
+  # Point api_base at the Ollama host if this config runs somewhere else.
+  # litellm connects to providers lazily, so an
   # unreachable local only errors if the fallback chain reaches `local`; it does not
   # block gateway startup.
   - model_name: local
@@ -78,7 +77,7 @@ mcp_servers:
     command: "./.venv/bin/python" # venv python (has fastmcp+numpy); basename passes the stdio allowlist
     args: ["memory/server.py"] # resolved from repo root — spine-sync cd's there before launch
     env: # litellm hands this env to the subprocess AS-IS, so pass through everything it needs
-      SYNAPSE_VAULT: os.environ/SYNAPSE_VAULT # index your real Obsidian vault, not the default store/
+      SYNAPSE_VAULT: os.environ/SYNAPSE_VAULT # index a private notes directory, not the default store/
       HOME: os.environ/HOME # server writes its embedding cache under ~/.cache/synapse
       PATH: os.environ/PATH
     allow_all_keys: true # no DB in this deployment — let the master key reach it
@@ -124,7 +123,7 @@ mcp_servers:
 
   # ── github: GitHub's remote MCP. auth_type MUST be 'authorization' — litellm's
   # 'bearer_token' path sends a redacted '******', so the token value itself
-  # carries the 'Bearer ' prefix (set from `gh auth token` by the plist/spine-sync).
+  # carries the 'Bearer ' prefix.
   github:
     transport: http
     url: "https://api.githubcopilot.com/mcp/"

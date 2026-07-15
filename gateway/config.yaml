@@ -1,4 +1,4 @@
-# Container deployment config for LiteLLM on VPS.
+# Container deployment config for LiteLLM.
 # Keep tier aliases, fallbacks, and budget aligned with gateway/litellm.yaml.
 # This profile intentionally excludes local stdio MCP servers/callbacks.
 
@@ -29,7 +29,7 @@ model_list:
 
   # ── local: offline fallback. Zero cost, zero network.
   # TODO(container): inside Docker, localhost:11434 is the CONTAINER's own loopback.
-  # Point this at the Ollama host's Tailscale address once selected.
+  # Point this at the Ollama host if this config runs somewhere else.
   - model_name: local
     litellm_params:
       model: ollama/qwen3.6:35b-a3b

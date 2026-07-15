@@ -4,14 +4,14 @@ Obsidian-vault-native knowledge graph with vector recall, exposed over MCP (or C
 
 ## Design
 
-Your vault **is** the memory. Notes = entities, `[[wikilinks]]` = graph edges,
+Your notes directory **is** the memory. Notes = entities, `[[wikilinks]]` = graph edges,
 `pred:: [[target]]` (Dataview syntax) = typed relations, `#tags` + frontmatter
 tags respected. No parallel store, no big JSON file — every fact is a markdown
 bullet you can see and edit in Obsidian, including in graph view.
 
 - **recall** indexes the whole vault (read-only over your notes)
 - **remember / forget** write ONLY inside `agent-memory/` — agents never touch your own notes
-- **Cache**: embeddings live in `~/.cache/synapse/`; the graph is an in-memory index rebuilt from the markdown in <1s whenever notes change (no database, no native deps). Never synced — only markdown crosses machines (via Proton Drive).
+- **Cache**: embeddings live in `~/.cache/synapse/`; the graph is an in-memory index rebuilt from markdown whenever notes change (no database, no native deps). Never sync the cache — sync markdown only.
 
 ## Embeddings
 
@@ -31,17 +31,15 @@ ollama pull nomic-embed-text
 claude mcp add synapse-memory -- python3 <path-to-synapse>/memory/server.py
 ```
 
-CLI works the same everywhere: `python3 server.py recall "..." | remember "..." | neighbors lucas | stats`.
+CLI works the same everywhere: `python3 server.py recall "..." | remember "..." | neighbors <topic> | stats`.
 
 ## Conventions
 
 - One bullet per fact — small facts compose better than paragraphs.
 - Wikilink entities you want in the graph: `- Prefers [[typescript]] #preference`
 - Typed relations as their own bullet: `- studies_at:: [[ntnu]]`
-- `agent-memory/<topic>.md` per topic (`lucas`, `projects`, `inbox` for uncategorized).
+- `agent-memory/<topic>.md` per topic (`projects`, `inbox` for uncategorized).
 
 ## Privacy
 
-`memory/store/` is gitignored (repo is public). It syncs via Proton Drive because
-the folder lives there — never via git. Point `SYNAPSE_VAULT` at your real vault
-and the same applies as long as the vault is outside any public repo.
+`memory/store/` is gitignored. Point `SYNAPSE_VAULT` at a notes directory outside this repo; sync that directory however you normally sync private notes, never through git.
