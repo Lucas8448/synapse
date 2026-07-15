@@ -1,8 +1,10 @@
 # synapse
 
-Provider-agnostic AI gateway config — one spine for all models, tools, and agents.
+Provider-agnostic AI gateway config — one spine for model routing, MCP tools, and cheaper subagents.
 
-One local gateway ([LiteLLM](https://docs.litellm.ai/docs/proxy/quick_start)) + this repo as the single source of truth. Every tool (pi, Claude Code, OpenCode, scripts) talks to `localhost:4000` using stable tier aliases — swap providers behind them without touching any tool config.
+One local gateway ([LiteLLM](https://docs.litellm.ai/docs/proxy/quick_start)) + this repo as the single source of truth. Every client talks to `localhost:4000` using stable tier aliases — swap providers behind them without touching client config.
+
+**Status:** working personal infra, not a packaged product. The interesting bit is the gateway/MCP architecture; secrets and private memory stay outside git.
 
 ## Tiers
 
@@ -12,7 +14,7 @@ One local gateway ([LiteLLM](https://docs.litellm.ai/docs/proxy/quick_start)) + 
 | `mid`      | Everyday coding, refactors                | OpenRouter · deepseek/deepseek-v4-flash    |
 | `bulk`     | Subagent fanout, classification, mining   | OpenRouter · nemotron-3-super-120b (:free) |
 | `low`      | Commit msgs, renames, trivia              | OpenRouter · cohere/north-mini-code (:free)|
-| `local`    | Offline fallback                          | Ollama · qwen2.5-coder                     |
+| `local`    | Offline fallback                          | Ollama · qwen3.6                           |
 
 Fallbacks: `frontier → mid → bulk → low → local`. Hard budget cap: $20/mo.
 
@@ -22,7 +24,7 @@ Every chat/responses call gets a curated MCP toolbox injected by the gateway —
 apps need **zero** MCP setup. A pre-call hook (`gateway/mcp_autoinject.py`)
 attaches tools by tier:
 
-- **Everywhere** — `synapse` personal memory (Obsidian knowledge graph) + web
+- **Everywhere** — `synapse` memory (Obsidian-compatible knowledge graph) + web
   `fetch` / `websearch`.
 - **Capable tiers** (`frontier`/`mid`/`local`) — read-only `files`, `git`, and
   `github` (47 tools). Curated to read-only so a blanket attach can't mutate.
@@ -48,7 +50,7 @@ base_url = http://localhost:4000
 model    = frontier | mid | bulk | local
 ```
 
-## Deploy (VPS)
+## Deploy (container)
 
 ```sh
 cd /opt/synapse/gateway
@@ -73,6 +75,5 @@ bin/        spine-sync
 
 ## Notes
 
-- Claude Pro subscription has no API key — Claude Code authenticates natively on the sub; everything else routes through the gateway.
 - Swapping a provider = one line in `gateway/litellm.yaml`. Tool configs never change.
 - Response cache is on: repeated identical calls are free.
